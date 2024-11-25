@@ -15,19 +15,15 @@
 class Radar{
 public:
 	 	Radar();
-	    Radar(std::vector<Aircraft>& aircrafts);
+	    Radar(std::vector<Aircraft> aircrafts);
 	    void setSystemChid(int chid) { systemChid = chid; }
 	    AircraftStatus pingAircraft(Aircraft& ac);
-	    std::vector<AircraftStatus> getAllAircraftStatus(std::vector<Aircraft> aircraftss);
+	    std::vector<AircraftStatus> getAllAircraftStatus(std::vector<Aircraft>& aircraftss);
 	    std::vector<Aircraft> aircrafts;
 	    int systemChid=-1;
 
 private:
 
 };
-
-
-
-
 
 #endif // RADAR_H

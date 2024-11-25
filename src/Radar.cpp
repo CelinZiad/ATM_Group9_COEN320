@@ -13,53 +13,50 @@
 #include <chrono>
 #include <thread>
 using namespace std;
+
 #define COMMAND_RADAR_PING 2
 std::mutex aircraft_mutex;
 
 
 
-Radar::Radar(std::vector<Aircraft>& aircrafts)
+Radar::Radar(std::vector<Aircraft> aircrafts)
     : aircrafts(aircrafts), systemChid(-1) {}
 
-AircraftStatus Radar::pingAircraft(Aircraft &ac) {
-    AircraftStatus status;
-
-cout<<ac.getChid();
-    int attempts = 5; // Retry a few times
-        while (ac.getChid() == 0 && attempts > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Wait for chid
-            attempts--;
-        }
-
-
+AircraftStatus Radar::pingAircraft(Aircraft& ac) {
 
 
     int coid = ConnectAttach(0, 0, ac.getChid(), _NTO_SIDE_CHANNEL, 0);
+    PlaneCommandMessage msg;
+    msg.command = COMMAND_RADAR_PING;
+    AircraftStatus response;
 
+    MsgSend(coid, &msg, sizeof(msg), &response, sizeof(response));
 
-    struct _pulse msg;
-    msg.type = COMMAND_RADAR_PING;
-    msg.subtype = 0;
-
-    MsgSend(coid, &msg, sizeof(msg), &status, sizeof(status));
-
-
+    cout<<"AFTER MSGSEND!!\n";
 
     ConnectDetach(coid);
-    return status;
+    return response;
 }
 
-std::vector<AircraftStatus> Radar::getAllAircraftStatus(std::vector<Aircraft> aircraftss) {
-	std::vector<AircraftStatus> allStatus;
-	//std::lock_guard<std::mutex> lock(aircraft_mutex);
+std::vector<AircraftStatus> Radar::getAllAircraftStatus(std::vector<Aircraft>& aircraftss) {
+	std::vector<AircraftStatus> responses;
+	for (size_t i = 0; i < aircraftss.size(); i++) {
+		// Connect to plane's message passing channel.
+		int coid = ConnectAttach(0, 0, aircraftss[i].getChid(), _NTO_SIDE_CHANNEL,0);
+
+		PlaneCommandMessage msg;
+		msg.command= COMMAND_RADAR_PING;
+		//msg.subtype = 0;
+		AircraftStatus response;
+		MsgSend(coid, &msg, sizeof(msg), &response, sizeof(response));
+
+		ConnectDetach(coid);
+		responses.push_back(response);
 
 
-    for (auto& aircraft : aircraftss) {
-    	cout<<"WE OUT!!\n";
-        allStatus.push_back(pingAircraft(aircraft));
-    }
+	}
+	return responses;
 
-    return allStatus;
 }
 
 

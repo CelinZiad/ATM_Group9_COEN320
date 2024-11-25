@@ -12,13 +12,25 @@
 #include "Aircraft.h"
 #include "Radar.h"
 
+typedef struct {
+	int timerCode;
+	int taskIntervalSeconds;
+} periodicTask;
+typedef struct {
+	struct _pulse header;
+	int command;
+} ComputerSystemMessage;
+
 class ComputerSystem {
 private:
     int chid;
     int operatorChid;
     int displayChid;
     std::vector<Aircraft> aircrafts;
+    std::vector<AircraftStatus> aircraftsStatus;
     Radar radar;
+    void listen();
+    void createTasks();
 
 public:
     ComputerSystem(std::vector<Aircraft> aircrafts);
@@ -28,7 +40,7 @@ public:
     void setDisplayChid(int id);
     void checkViolation();
     void checkSeparation(Aircraft ac1, Aircraft ac2);
-
+    void logSystem();
     static void* start(void* context);
     void run();
     void initialize();

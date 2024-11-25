@@ -57,7 +57,7 @@ int main() {
 
         // Create aircraft thread
 
-        pthread_create(&aircraftThreads[i], nullptr,&Aircraft::start, &aircrafts[i]);
+        pthread_create(&aircraftThreads[i], NULL,&Aircraft::start, &aircrafts[i]);
 
 
         cout << "Aircraft " << aircrafts[i].getId() << " has entered the airspace.\n";

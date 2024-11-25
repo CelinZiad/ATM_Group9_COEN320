@@ -13,74 +13,144 @@
 #include <sys/siginfo.h>
 #include <time.h>
 #include <iostream>
+#define COMPUTER_SYSTEM_NUM_PERIODIC_TASKS 4
+#define AIRSPACE_VIOLATION_CONSTRAINT_TIMER 11
+#define LOG_AIRSPACE_TO_CONSOLE_TIMER 12
+#define OPERATOR_COMMAND_CHECK_TIMER 13
+#define LOG_AIRSPACE_TO_FILE_TIMER 14
 using namespace std;
 
 
 
 
-ComputerSystem::ComputerSystem(std::vector<Aircraft> aircrafts) : chid(-1), operatorChid(-1), displayChid(-1) {
-	this->aircrafts=aircrafts;
-
+ComputerSystem::ComputerSystem(std::vector<Aircraft> aircrafts) : chid(-1), operatorChid(-1), displayChid(-1),aircrafts(std::move(aircrafts)),  radar(this->aircrafts){
 }
 void ComputerSystem::setAircrafts(std::vector<Aircraft> aircraftss) {
 	aircrafts = std::move(aircraftss);
 }
-int ComputerSystem::getChid() const {
-	return chid;
-}
+int ComputerSystem::getChid() const {return chid;}
 
-void ComputerSystem::setOperatorChid(int id) {
-	operatorChid = id;
-}
+void ComputerSystem::setOperatorChid(int id) {operatorChid = id;}
 
-void ComputerSystem::setDisplayChid(int id) {
-	displayChid = id;
-}
+void ComputerSystem::setDisplayChid(int id) {displayChid = id;}
 
 void ComputerSystem::initialize() {
-
-    chid = ChannelCreate(0);
+   chid = ChannelCreate(0);
     if (chid == -1) {
         perror("Failed to create channel");
         return;
     }
-
-
-
     radar.setSystemChid(chid);
 }
+void ComputerSystem::createTasks(){
+	periodicTask periodicTasks[COMPUTER_SYSTEM_NUM_PERIODIC_TASKS] = { {
+	AIRSPACE_VIOLATION_CONSTRAINT_TIMER, 1 },
+			{ LOG_AIRSPACE_TO_CONSOLE_TIMER, 5 }, {
+			OPERATOR_COMMAND_CHECK_TIMER, 1 },
+			{ LOG_AIRSPACE_TO_FILE_TIMER, 30 } };
 
-void ComputerSystem::run() {
-    initialize();
+	if ((chid = ChannelCreate(0)) == -1) {
+		std::cout << "channel creation failed. Exiting thread." << std::endl;
+		return;
+	}
 
-    while (true) {
-    	cout<<"Inside computer System\n";
+	// Open a client to our own connection to be used for timer pulses and store the handle in coid.
+	int coid;
+	if ((coid = ConnectAttach(0, 0, chid, 0, 0)) == -1) {
+		std::cout
+				<< "ComputerSystem: failed to attach to self. Exiting thread.";
+		return;
+	}
 
-        std::vector<AircraftStatus> allStatus = radar.getAllAircraftStatus(aircrafts);
-        cout<<"After Radar";
+	// For each periodic task, initialize a timer with the associated code and interval.
+	for (int i = 0; i < COMPUTER_SYSTEM_NUM_PERIODIC_TASKS; i++) {
+		periodicTask pt = periodicTasks[i];
+		struct sigevent sigev;
+		timer_t timer;
+		SIGEV_PULSE_INIT(&sigev, coid, SIGEV_PULSE_PRIO_INHERIT, pt.timerCode,0);
+		if (timer_create(CLOCK_MONOTONIC, &sigev, &timer) == -1) {
+			std::cout
+					<< "ComputerSystem: failed to initialize timer. Exiting thread.";
+			return;
+		}
 
-        for (const auto& status : allStatus) {
-            for (auto& aircraft : aircrafts) {
-                if (aircraft.getId() == status.id) {
-                    aircraft.setX(status.x);
-                    aircraft.setY(status.y);
-                    aircraft.setZ(status.z);
-                    aircraft.setSpeedX(status.speedX);
-                    aircraft.setSpeedY(status.speedY);
-                    aircraft.setSpeedZ(status.speedZ) ;
-                    break;
-                }
-            }
-        }
-        cout << "\nCurrent Airspace Status:\n";
-              for (const auto& status : allStatus) {
-                  cout << "Aircraft ID: " << status.id
-                            << " | Position: (" << status.x << ", " << status.y << ", " << status.z << ")"
-                            << " | Speed: (" << status.speedX << ", " << status.speedY << ", " << status.speedZ << ")\n";
-              }
-        checkViolation();
-    }
+		struct itimerspec timerValue;
+		timerValue.it_value.tv_sec = pt.taskIntervalSeconds;
+		timerValue.it_value.tv_nsec = 0;
+		timerValue.it_interval.tv_sec = pt.taskIntervalSeconds;
+		timerValue.it_interval.tv_nsec = 0;
+
+		// Start the timer.
+		timer_settime(timer, 0, &timerValue, NULL);
+	}
+
 }
+
+void ComputerSystem::listen(){
+	int rcvid;
+	ComputerSystemMessage msg;
+	while (1) {
+		// Wait for any type of message.
+		rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+		if (rcvid == 0) {
+			// Handle internal switches from the pulses of the various timers.
+			switch (msg.header.code) {
+			case LOG_AIRSPACE_TO_CONSOLE_TIMER:
+				logSystem();
+				break;
+			case AIRSPACE_VIOLATION_CONSTRAINT_TIMER:
+				//violationCheck();
+				break;
+			case OPERATOR_COMMAND_CHECK_TIMER:
+				//opConCheck();
+				break;
+			case LOG_AIRSPACE_TO_FILE_TIMER:
+				//logSystem(true);
+				break;
+			default:
+				std::cout
+						<< "ComputerSystem: received pulse with unknown code: "
+						<< msg.header.code << " and unknown command: "
+						<< msg.command << std::endl;
+				break;
+			}
+		}else{
+			/*switch (msg.command) {
+			case COMMAND_OPERATOR_REQUEST:
+				//MsgSend(operatorChid, &msg, sizeof(msg), NULL, 0);
+				break;
+			case COMMAND_EXIT_THREAD:
+				// Required to allow all threads to gracefully terminate when the program is terminating
+				cout << "ComputerSystem: " << "Received EXIT command" << endl;
+				MsgReply(rcvid, EOK, NULL, 0);
+				return;
+			default:
+				std::cout << "ComputerSystem: " << "received unknown command "
+						<< msg.command << std::endl;
+				MsgError(rcvid, ENOSYS);
+				break;*/
+			}
+
+		}
+}
+
+void ComputerSystem::logSystem(){
+
+	this->aircraftsStatus=radar.getAllAircraftStatus(aircrafts);
+	size_t aircraftCount = aircraftsStatus.size();
+	for (size_t i = 0; i < aircraftCount; i++){
+		 cout << "Aircraft ID: " << aircraftsStatus[i].id
+		     << " | Position: (" << aircraftsStatus[i].x << ", " << aircraftsStatus[i].y << ", " << aircraftsStatus[i].z << ")"
+		     << " | Speed: (" << aircraftsStatus[i].speedX << ", " << aircraftsStatus[i].speedY << ", " << aircraftsStatus[i].speedZ << ")\n";
+	}
+}
+
+void ComputerSystem::run(){
+	createTasks();
+
+	listen();
+}
+
 
 
 void ComputerSystem::checkViolation(){

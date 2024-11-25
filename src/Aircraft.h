@@ -19,9 +19,13 @@ struct AircraftStatus {
     int id;
     double x, y, z;
     double speedX, speedY, speedZ;
-    int channel_id;
-    timer_t timer_id;
+
 };
+
+typedef struct {
+	struct _pulse header;
+	int command;
+} PlaneCommandMessage;
 
 // Aircraft Status for Radar
 
@@ -64,8 +68,8 @@ private:
 	void run();
 	void updatePosition();
 
-	static Aircraft* current_aircraft;
-	static void signal_handler(int sig, siginfo_t* si, void* uc);
+	//static Aircraft* current_aircraft;
+	//static void signal_handler(int sig, siginfo_t* si, void* uc);
 	timer_t timer_id;
 };
 
