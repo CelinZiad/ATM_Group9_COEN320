@@ -9,8 +9,10 @@
 #define COMPUTERSYSTEM_H_
 
 #include <vector>
+#include <memory>
 #include "Aircraft.h"
 #include "Radar.h"
+
 
 typedef struct {
 	int timerCode;
@@ -26,25 +28,25 @@ private:
     int chid;
     int operatorChid;
     int displayChid;
-    std::vector<Aircraft> aircrafts;
+    std::vector<std::shared_ptr<Aircraft>>& aircrafts;
     std::vector<AircraftStatus> aircraftsStatus;
     Radar radar;
     void listen();
     void createTasks();
 
 public:
-    ComputerSystem(std::vector<Aircraft> aircrafts);
+    ComputerSystem(std::vector<std::shared_ptr<Aircraft>>& aircrafts);
 
     int getChid() const;
     void setOperatorChid(int id);
     void setDisplayChid(int id);
     void checkViolation();
-    void checkSeparation(Aircraft ac1, Aircraft ac2);
+    void checkSeparation(const std::shared_ptr<Aircraft>& ac1, const std::shared_ptr<Aircraft>& ac2);
     void logSystem();
     static void* start(void* context);
     void run();
     void initialize();
-    void setAircrafts(std::vector<Aircraft> aircraftss);
+    //void setAircrafts(std::vector<Aircraft> aircraftss);
 };
 
 #endif

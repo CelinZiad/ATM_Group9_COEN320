@@ -15,7 +15,7 @@
 using namespace std;
 
 int main() {
-    vector<Aircraft> aircrafts;
+	vector<std::shared_ptr<Aircraft>> aircrafts;
 
     DataDisplay display;
     string line;
@@ -41,29 +41,18 @@ int main() {
 
 
         //Aircraft aircraft = new Aircraft(id, arrivalTime, x, y, z, speedX, speedY, speedZ);
-        aircrafts.push_back(Aircraft(id, arrivalTime, x, y, z, speedX, speedY, speedZ)); // Add the aircraft to the vector
+        aircrafts.push_back(make_shared<Aircraft>(id, arrivalTime, x, y, z, speedX, speedY, speedZ)); // Add the aircraft to the vector
 
     }
     int numberOfAircraft=aircrafts.size();
     pthread_t aircraftThreads[numberOfAircraft];
 
 
-    // Start aircraft threads at their specified entry times
     for (size_t i=0;i<aircrafts.size();i++) {
-        // Sleep until the aircraft's scheduled time
-        int sleep_time = aircrafts[i].getArrivalTime();
-        if (sleep_time > 0) {
-            this_thread::sleep_for(chrono::seconds(sleep_time));
-        }
-
         // Create aircraft thread
-
-        pthread_create(&aircraftThreads[i], NULL,&Aircraft::start, &aircrafts[i]);
-
-
-        cout << "Aircraft " << aircrafts[i].getId() << " has entered the airspace.\n";
+        pthread_create(&aircraftThreads[i], NULL,&Aircraft::start, aircrafts[i].get());
     }
-    ComputerSystem compSystem= ComputerSystem(aircrafts);
+    ComputerSystem compSystem(aircrafts);
     //data display thread
     pthread_t data_display_tid;
     pthread_create(&data_display_tid, NULL, &DataDisplay::start, &display);

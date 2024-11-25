@@ -1,10 +1,3 @@
-/*
- * ComputerSystem.cpp
- *
- *  Created on: Nov. 19, 2024
- *      Author: Elias
- */
-
 #include "ComputerSystem.h"
 #include <iostream>
 #include <fstream>
@@ -12,132 +5,97 @@
 #include <cstring>
 #include <sys/siginfo.h>
 #include <time.h>
-#include <iostream>
+
+#define COMMAND_DISPLAY_AIRCRAFT 1111
+
 #define COMPUTER_SYSTEM_NUM_PERIODIC_TASKS 4
 #define AIRSPACE_VIOLATION_CONSTRAINT_TIMER 11
 #define LOG_AIRSPACE_TO_CONSOLE_TIMER 12
 #define OPERATOR_COMMAND_CHECK_TIMER 13
 #define LOG_AIRSPACE_TO_FILE_TIMER 14
-#define COMMAND_DISPLAY_AIRCRAFT 1111
+
 using namespace std;
 
+ComputerSystem::ComputerSystem(std::vector<std::shared_ptr<Aircraft>>& aircrafts)
+    : chid(-1), operatorChid(-1), displayChid(-1), aircrafts(aircrafts), radar(aircrafts) {}
 
 
+void ComputerSystem::createTasks() {
+    periodicTask periodicTasks[COMPUTER_SYSTEM_NUM_PERIODIC_TASKS] = {
+        { AIRSPACE_VIOLATION_CONSTRAINT_TIMER, 1 },
+        { LOG_AIRSPACE_TO_CONSOLE_TIMER, 5 },
+        { OPERATOR_COMMAND_CHECK_TIMER, 1 },
+        { LOG_AIRSPACE_TO_FILE_TIMER, 30 }
+    };
 
-ComputerSystem::ComputerSystem(std::vector<Aircraft> aircrafts) : chid(-1), operatorChid(-1), displayChid(-1),aircrafts(std::move(aircrafts)),  radar(this->aircrafts){
-}
-void ComputerSystem::setAircrafts(std::vector<Aircraft> aircraftss) {
-	aircrafts = std::move(aircraftss);
-}
-int ComputerSystem::getChid() const {return chid;}
-
-void ComputerSystem::setOperatorChid(int id) {operatorChid = id;}
-
-void ComputerSystem::setDisplayChid(int id) {displayChid = id;}
-
-void ComputerSystem::initialize() {
-   chid = ChannelCreate(0);
-    if (chid == -1) {
-        perror("Failed to create channel");
+    if ((chid = ChannelCreate(0)) == -1) {
+        std::cout << "channel creation failed. Exiting thread." << std::endl;
         return;
     }
-    radar.setSystemChid(chid);
-}
-void ComputerSystem::createTasks(){
-	periodicTask periodicTasks[COMPUTER_SYSTEM_NUM_PERIODIC_TASKS] = { {
-	AIRSPACE_VIOLATION_CONSTRAINT_TIMER, 1 },
-			{ LOG_AIRSPACE_TO_CONSOLE_TIMER, 5/*change to 5 later*/ }, {
-			OPERATOR_COMMAND_CHECK_TIMER, 1 },
-			{ LOG_AIRSPACE_TO_FILE_TIMER, 30 } };
 
-	if ((chid = ChannelCreate(0)) == -1) {
-		std::cout << "channel creation failed. Exiting thread." << std::endl;
-		return;
-	}
+    int coid;
+    if ((coid = ConnectAttach(0, 0, chid, 0, 0)) == -1) {
+        std::cout << "ComputerSystem: failed to attach to self. Exiting thread.";
+        return;
+    }
 
-	// Open a client to our own connection to be used for timer pulses and store the handle in coid.
-	int coid;
-	if ((coid = ConnectAttach(0, 0, chid, 0, 0)) == -1) {
-		std::cout
-				<< "ComputerSystem: failed to attach to self. Exiting thread.";
-		return;
-	}
+    for (int i = 0; i < COMPUTER_SYSTEM_NUM_PERIODIC_TASKS; i++) {
+        periodicTask pt = periodicTasks[i];
+        struct sigevent sigev;
+        timer_t timer;
+        SIGEV_PULSE_INIT(&sigev, coid, SIGEV_PULSE_PRIO_INHERIT, pt.timerCode, 0);
+        if (timer_create(CLOCK_MONOTONIC, &sigev, &timer) == -1) {
+            std::cout << "ComputerSystem: failed to initialize timer. Exiting thread.";
+            return;
+        }
 
-	// For each periodic task, initialize a timer with the associated code and interval.
-	for (int i = 0; i < COMPUTER_SYSTEM_NUM_PERIODIC_TASKS; i++) {
-		periodicTask pt = periodicTasks[i];
-		struct sigevent sigev;
-		timer_t timer;
-		SIGEV_PULSE_INIT(&sigev, coid, SIGEV_PULSE_PRIO_INHERIT, pt.timerCode,0);
-		if (timer_create(CLOCK_MONOTONIC, &sigev, &timer) == -1) {
-			std::cout
-					<< "ComputerSystem: failed to initialize timer. Exiting thread.";
-			return;
-		}
+        struct itimerspec timerValue;
+        if (pt.timerCode == LOG_AIRSPACE_TO_CONSOLE_TIMER) {
+            timerValue.it_value.tv_sec = 0;
+            timerValue.it_value.tv_nsec = 1; // Minimal non-zero value
+        } else {
+            timerValue.it_value.tv_sec = pt.taskIntervalSeconds;
+            timerValue.it_value.tv_nsec = 0;
+        }
+        timerValue.it_interval.tv_sec = pt.taskIntervalSeconds;
+        timerValue.it_interval.tv_nsec = 0;
 
-		struct itimerspec timerValue;
-		timerValue.it_value.tv_sec = pt.taskIntervalSeconds;
-		timerValue.it_value.tv_nsec = 0;
-		timerValue.it_interval.tv_sec = pt.taskIntervalSeconds;
-		timerValue.it_interval.tv_nsec = 0;
-
-		// Start the timer.
-		timer_settime(timer, 0, &timerValue, NULL);
-	}
-
+        timer_settime(timer, 0, &timerValue, NULL);
+    }
 }
 
-void ComputerSystem::listen(){
-	int rcvid;
-	ComputerSystemMessage msg;
-	while (1) {
-		// Wait for any type of message.
-		rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
-		if (rcvid == 0) {
-			// Handle internal switches from the pulses of the various timers.
-			switch (msg.header.code) {
-			case LOG_AIRSPACE_TO_CONSOLE_TIMER:
-				logSystem();
-				break;
-			case AIRSPACE_VIOLATION_CONSTRAINT_TIMER:
-				//violationCheck();
-				break;
-			case OPERATOR_COMMAND_CHECK_TIMER:
-				//opConCheck();
-				break;
-			case LOG_AIRSPACE_TO_FILE_TIMER:
-				//logSystem(true);
-				break;
-			default:
-				std::cout
-						<< "ComputerSystem: received pulse with unknown code: "
-						<< msg.header.code << " and unknown command: "
-						<< msg.command << std::endl;
-				break;
-			}
-		}else{
-			/*switch (msg.command) {
-			case COMMAND_OPERATOR_REQUEST:
-				//MsgSend(operatorChid, &msg, sizeof(msg), NULL, 0);
-				break;
-			case COMMAND_EXIT_THREAD:
-				// Required to allow all threads to gracefully terminate when the program is terminating
-				cout << "ComputerSystem: " << "Received EXIT command" << endl;
-				MsgReply(rcvid, EOK, NULL, 0);
-				return;
-			default:
-				std::cout << "ComputerSystem: " << "received unknown command "
-						<< msg.command << std::endl;
-				MsgError(rcvid, ENOSYS);
-				break;*/
-			}
-
-		}
+void ComputerSystem::listen() {
+    int rcvid;
+    ComputerSystemMessage msg;
+    while (1) {
+        rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+        if (rcvid == 0) {
+            // Pulse received
+            switch (msg.header.code) {
+            case LOG_AIRSPACE_TO_CONSOLE_TIMER:
+                logSystem();
+                break;
+            case AIRSPACE_VIOLATION_CONSTRAINT_TIMER:
+                checkViolation();
+                break;
+            case OPERATOR_COMMAND_CHECK_TIMER:
+                // Implement operator command check if needed
+                break;
+            case LOG_AIRSPACE_TO_FILE_TIMER:
+                // Implement logging to file if needed
+                break;
+            default:
+                std::cout << "ComputerSystem: received unknown pulse code: " << (int)msg.header.code << std::endl;
+                break;
+            }
+        } else {
+            // Handle other messages if needed
+        }
+    }
 }
 
-void ComputerSystem::logSystem(){
-
-	this->aircraftsStatus=radar.getAllAircraftStatus(aircrafts);
+void ComputerSystem::logSystem() {
+    aircraftsStatus = radar.getAllAircraftStatus();
     struct AircraftStatusMessage {
         int command;
         size_t count;
@@ -161,51 +119,50 @@ void ComputerSystem::logSystem(){
 	    }
 }
 
-void ComputerSystem::run(){
-	createTasks();
-
-	listen();
+void ComputerSystem::run() {
+    createTasks();
+    listen();
 }
 
-
-
-void ComputerSystem::checkViolation(){
-	for(size_t i=0;i<aircrafts.size()-1;i++){
-		for(size_t j=i+1;j<aircrafts.size();j++){
-			checkSeparation(aircrafts[i],aircrafts[j]);
-		}
-	}
-}
-void ComputerSystem::checkSeparation(Aircraft ac1,Aircraft ac2){
-	int verticalLimit=1000;
-	int horizontalLimit=3000;
-
-	int x1max=ac1.getX()+horizontalLimit;
-	int x1min=ac1.getX()-horizontalLimit;
-	int y1max=ac1.getY()+horizontalLimit;
-	int y1min=ac1.getY()-horizontalLimit;
-	int z1max=ac1.getZ()+verticalLimit;
-	int z1min=ac1.getZ()-verticalLimit;
-
-	int x2max=ac2.getX()+horizontalLimit;
-	int x2min=ac2.getX()-horizontalLimit;
-	int y2max=ac2.getY()+horizontalLimit;
-	int y2min=ac2.getY()-horizontalLimit;
-	int z2max=ac2.getZ()+verticalLimit;
-	int z2min=ac2.getZ()-verticalLimit;
-
-	if ((x1max < x2min && x2max < x1min) && (y1max < y2min && y2max < y1min)&& (z1max < z2min && z2max < z1min)){
-		std::cout<<"Collision";
-	}
-}
-void* ComputerSystem::start(void *context) {
-	auto cs = (ComputerSystem*) context;
-	cs->run();
-	return NULL;
+void ComputerSystem::checkViolation() {
+    for (size_t i = 0; i < aircrafts.size() - 1; i++) {
+        for (size_t j = i + 1; j < aircrafts.size(); j++) {
+            checkSeparation(aircrafts[i], aircrafts[j]);
+        }
+    }
 }
 
+void ComputerSystem::checkSeparation(const std::shared_ptr<Aircraft>& ac1, const std::shared_ptr<Aircraft>& ac2) {
+    int verticalLimit = 1000;
+    int horizontalLimit = 3000;
 
+    int x1max = ac1->getX() + horizontalLimit;
+    int x1min = ac1->getX() - horizontalLimit;
+    int y1max = ac1->getY() + horizontalLimit;
+    int y1min = ac1->getY() - horizontalLimit;
+    int z1max = ac1->getZ() + verticalLimit;
+    int z1min = ac1->getZ() - verticalLimit;
 
+    int x2max = ac2->getX() + horizontalLimit;
+    int x2min = ac2->getX() - horizontalLimit;
+    int y2max = ac2->getY() + horizontalLimit;
+    int y2min = ac2->getY() - horizontalLimit;
+    int z2max = ac2->getZ() + verticalLimit;
+    int z2min = ac2->getZ() - verticalLimit;
 
+    if ((x1max < x2min && x2max < x1min) && (y1max < y2min && y2max < y1min) && (z1max < z2min && z2max < z1min)) {
+        std::cout << "Collision detected between Aircraft " << ac1->getId() << " and Aircraft " << ac2->getId() << std::endl;
+    }
+}
 
+void* ComputerSystem::start(void* context) {
+    auto cs = static_cast<ComputerSystem*>(context);
+    cs->run();
+    return NULL;
+}
 
+int ComputerSystem::getChid() const { return chid; }
+
+void ComputerSystem::setOperatorChid(int id) { operatorChid = id; }
+
+void ComputerSystem::setDisplayChid(int id) { displayChid = id; }

@@ -34,6 +34,7 @@ void DataDisplay::listen(){
 	    			MsgReply(rcvid,EOK,NULL,0);//acknowledgement
 
 	    			for (auto &aircraft:msg.aircrafts){
+
 	    				std::cout << "Aircraft ID: " << aircraft.id
 	    				          << " | Position: (" << aircraft.x << ", " << aircraft.y << ", " << aircraft.z << ")"
 	    					      << " | Speed: (" << aircraft.speedX << ", " << aircraft.speedY << ", " << aircraft.speedZ << ")\n";

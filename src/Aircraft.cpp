@@ -19,109 +19,107 @@
 using namespace std;
 
 
-Aircraft::Aircraft(int id,int arrivalTime, double x,double y, double z,  double speedX,  double speedY, double speedZ): id(id),arrivalTime(arrivalTime), x(x), y(y), z(z), speedX(speedX), speedY(speedY), speedZ(speedZ){
-this->left=false;
-this->chid=0;
-this->arrived=false;
-//this->thread_id=-1;
-
+Aircraft::Aircraft(int id, int arrivalTime, double x, double y, double z,
+                   double speedX, double speedY, double speedZ)
+    : id(id), arrivalTime(arrivalTime), x(x), y(y), z(z),
+      speedX(speedX), speedY(speedY), speedZ(speedZ) {
+    arrived.store(false);
+    left.store(false);
+    chid = ChannelCreate(0);
+    if (chid == -1) {
+        perror("Failed to create channel");
+    }
 }
+
 
 // Aircraft* Aircraft::current_aircraft = nullptr;
 
-void Aircraft::updatePosition(){
-this->x+=this->speedX;
-this->y+=this->speedY;
-this->z+=this->speedZ;
-if (this->x < 0 || this->x > 100000 ||this->y < 0 || this->y > 100000 ||this->z < 0 || this->z > 25000) {
-	left=true;
-        cout << "Aircraft " << this->id << " has left the airspace.\n";
-        ChannelDestroy(this->chid);
-        pthread_exit(nullptr);
-        timer_delete(this->timer_id);
-	}
+void Aircraft::updatePosition() {
+    x += speedX;
+    y += speedY;
+    z += speedZ;
+    if (x < 0 || x > 100000 || y < 0 || y > 100000 || z < 0 || z > 25000) {
 
+        left.store(true);
+    }
 }
-
-
-
-
 
 void Aircraft::run() {
 
 
-	//create new comm channel and store handle in chid
-	chid = ChannelCreate(0);
+    // Client connecting to itself
+    int coid = ConnectAttach(0, 0, chid, 0, 0);
+    if (coid == -1) {
+        std::cout << "Failed attaching" << std::endl;
+    }
 
+    struct sigevent sigev;
+    SIGEV_PULSE_INIT(&sigev, coid, SIGEV_PULSE_PRIO_INHERIT, CODE_TIMER, 0);
 
+    timer_t updateTimer;
+    if (timer_create(CLOCK_MONOTONIC, &sigev, &updateTimer) == -1) {
+        cout << "EXIT";
+        return;
+    }
 
-	    //client connecting to itself
-	    	int coid;
-	    	coid= ConnectAttach(0,0,chid,0,0);
-	    	if(coid==-1){
-	    		std::cout<<"Failed attaching"<<std::endl;
-	    	}
-	    	struct sigevent sigev;
-	    	SIGEV_PULSE_INIT(&sigev, coid, SIGEV_PULSE_PRIO_INHERIT, CODE_TIMER, 0);
+    struct itimerspec timerValue;
 
-	    	timer_t updateTimer;
-	    	if (timer_create(CLOCK_MONOTONIC, &sigev, &updateTimer) == -1) {
-	    		cout<<"EXIT";
-	    		return;
-	    	}
+    // Adjust initial timer value for arrivalTime == 0
+    if (arrivalTime == 0) {
+        timerValue.it_value.tv_sec = 0;
+        timerValue.it_value.tv_nsec = 1; // Minimal non-zero value
+    } else {
+        timerValue.it_value.tv_sec = arrivalTime;
+        timerValue.it_value.tv_nsec = 0;
+    }
 
-	    	struct itimerspec timerValue;
-	    	timerValue.it_value.tv_sec = this->arrivalTime;
-	    	timerValue.it_value.tv_nsec = 0;
-	    	timerValue.it_interval.tv_sec = 1;
-	    	timerValue.it_interval.tv_nsec = 0;
+    timerValue.it_interval.tv_sec = 1;
+    timerValue.it_interval.tv_nsec = 0;
 
-	    	timer_settime(updateTimer, 0, &timerValue, NULL);
+    timer_settime(updateTimer, 0, &timerValue, NULL);
 
-	int rcvid;
-	 PlaneCommandMessage msg;
+    int rcvid;
+    PlaneCommandMessage msg;
 
-	while(1){
-				rcvid=MsgReceive(chid, &msg, sizeof(msg), NULL);
-		        if (rcvid == 0) {
-		           switch(msg.header.code){
-		           case CODE_TIMER:
-		        	   if(!arrived){
-		        		   arrived=true;
-
-		        		   break;
-		        	   }else if(left)break;
-		        	   updatePosition();
-		        	   break;
-		           default:
-		        	   cout<<"Unknown code\n";
-		        	   break;
-		           }
-		        } else{
-		        	switch(msg.command){
-		        	case COMMAND_RADAR_PING:
-		        		AircraftStatus response;
-		        		response.time=this->arrivalTime;
-		        		response.id=this->id;
-		        		response.x=this->x;
-		        		response.y=this->y;
-		        		response.z=this->z;
-		        		response.speedX=this->speedX;
-		        		response.speedY=this->speedY;
-		        		response.speedZ=this->speedZ;
-
-		        		MsgReply(rcvid, EOK, &response, sizeof(response));
-		        		updatePosition();
-		        		break;
-		        	default:
-		        		cout<<"Unknown command\n";
-		        	}
-		        }
-
-	}
+    while (1) {
+        rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);
+        if (rcvid == 0) {
+            switch (msg.header.code) {
+            case CODE_TIMER:
+                if (!arrived.load()) {
+                    arrived.store(true);
+                    cout << "Aircraft " << id << " has entered the airspace.\n";
+                } else if (left.load()) {
+                    cout << "Aircraft " << id << " has left the airspace.\n";
+                    return; // Exit the thread
+                } else {
+                    updatePosition();
+                }
+                break;
+            default:
+                cout << "Unknown code\n";
+                break;
+            }
+        } else {
+            switch (msg.command) {
+            case COMMAND_RADAR_PING:
+                AircraftStatus response;
+                response.time = arrivalTime;
+                response.id = id;
+                response.x = x;
+                response.y = y;
+                response.z = z;
+                response.speedX = speedX;
+                response.speedY = speedY;
+                response.speedZ = speedZ;
+                MsgReply(rcvid, EOK, &response, sizeof(response));
+                break;
+            default:
+                cout << "Unknown command\n";
+            }
+        }
+    }
 }
-
-
 void* Aircraft::start(void *context) {
 	auto a = (Aircraft*) context;
 	a->run();
