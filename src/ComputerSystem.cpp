@@ -72,11 +72,11 @@ void ComputerSystem::listen() {
         if (rcvid == 0) {
             // Pulse received
             switch (msg.header.code) {
+            case AIRSPACE_VIOLATION_CONSTRAINT_TIMER:
+                 checkViolation();
+                 break;
             case LOG_AIRSPACE_TO_CONSOLE_TIMER:
                 logSystem();
-                break;
-            case AIRSPACE_VIOLATION_CONSTRAINT_TIMER:
-                checkViolation();
                 break;
             case OPERATOR_COMMAND_CHECK_TIMER:
                 // Implement operator command check if needed
@@ -150,7 +150,7 @@ void ComputerSystem::checkSeparation(const std::shared_ptr<Aircraft>& ac1, const
     int z2max = ac2->getZ() + verticalLimit;
     int z2min = ac2->getZ() - verticalLimit;
 
-    if ((x1max < x2min && x2max < x1min) && (y1max < y2min && y2max < y1min) && (z1max < z2min && z2max < z1min)) {
+    if ((x1max >= x2min && x2max >= x1min) && (y1max >= y2min && y2max >= y1min)&& (z1max >= z2min && z2max >= z1min)) {
         std::cout << "Collision detected between Aircraft " << ac1->getId() << " and Aircraft " << ac2->getId() << std::endl;
     }
 }
