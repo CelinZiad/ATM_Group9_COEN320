@@ -32,7 +32,7 @@ AircraftStatus Radar::pingAircraft(Aircraft& ac) {
 
     MsgSend(coid, &msg, sizeof(msg), &response, sizeof(response));
 
-    cout<<"AFTER MSGSEND!!\n";
+
 
     ConnectDetach(coid);
     return response;
@@ -46,7 +46,7 @@ std::vector<AircraftStatus> Radar::getAllAircraftStatus(std::vector<Aircraft>& a
 
 		PlaneCommandMessage msg;
 		msg.command= COMMAND_RADAR_PING;
-		//msg.subtype = 0;
+
 		AircraftStatus response;
 		MsgSend(coid, &msg, sizeof(msg), &response, sizeof(response));
 

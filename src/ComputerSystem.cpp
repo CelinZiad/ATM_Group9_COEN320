@@ -18,6 +18,7 @@
 #define LOG_AIRSPACE_TO_CONSOLE_TIMER 12
 #define OPERATOR_COMMAND_CHECK_TIMER 13
 #define LOG_AIRSPACE_TO_FILE_TIMER 14
+#define COMMAND_DISPLAY_AIRCRAFT 1111
 using namespace std;
 
 
@@ -45,7 +46,7 @@ void ComputerSystem::initialize() {
 void ComputerSystem::createTasks(){
 	periodicTask periodicTasks[COMPUTER_SYSTEM_NUM_PERIODIC_TASKS] = { {
 	AIRSPACE_VIOLATION_CONSTRAINT_TIMER, 1 },
-			{ LOG_AIRSPACE_TO_CONSOLE_TIMER, 5 }, {
+			{ LOG_AIRSPACE_TO_CONSOLE_TIMER, 5/*change to 5 later*/ }, {
 			OPERATOR_COMMAND_CHECK_TIMER, 1 },
 			{ LOG_AIRSPACE_TO_FILE_TIMER, 30 } };
 
@@ -137,12 +138,27 @@ void ComputerSystem::listen(){
 void ComputerSystem::logSystem(){
 
 	this->aircraftsStatus=radar.getAllAircraftStatus(aircrafts);
-	size_t aircraftCount = aircraftsStatus.size();
-	for (size_t i = 0; i < aircraftCount; i++){
-		 cout << "Aircraft ID: " << aircraftsStatus[i].id
-		     << " | Position: (" << aircraftsStatus[i].x << ", " << aircraftsStatus[i].y << ", " << aircraftsStatus[i].z << ")"
-		     << " | Speed: (" << aircraftsStatus[i].speedX << ", " << aircraftsStatus[i].speedY << ", " << aircraftsStatus[i].speedZ << ")\n";
+    struct AircraftStatusMessage {
+        int command;
+        size_t count;
+        std::vector<AircraftStatus> aircrafts;
+    } msg;
+    msg.command=COMMAND_DISPLAY_AIRCRAFT;
+	msg.count = aircraftsStatus.size();
+	for (size_t i = 0; i < aircraftsStatus.size(); i++){
+		msg.aircrafts.push_back(aircraftsStatus[i]);
 	}
+
+	int coid = ConnectAttach(0, 0, displayChid, _NTO_SIDE_CHANNEL, 0);
+	 if (coid == -1) {
+	        perror("ConnectAttach failed");
+	        return;
+	    }
+	int msgSnd=MsgSend(coid, &msg, sizeof(msg), NULL, 0) ;
+
+	if (msgSnd == -1) {
+	        perror("MsgSend to DataDisplay failed");
+	    }
 }
 
 void ComputerSystem::run(){

@@ -36,23 +36,20 @@ this->z+=this->speedZ;
 if (this->x < 0 || this->x > 100000 ||this->y < 0 || this->y > 100000 ||this->z < 0 || this->z > 25000) {
 	left=true;
         cout << "Aircraft " << this->id << " has left the airspace.\n";
+        ChannelDestroy(this->chid);
+        pthread_exit(nullptr);
+        timer_delete(this->timer_id);
 	}
 
 }
 
 
 
-/*void Aircraft::signal_handler(int sig, siginfo_t* si, void* uc) {
-
-    if (current_aircraft) {
-        current_aircraft->updatePosition();
-    }
-}*/
 
 
 void Aircraft::run() {
 
-	 //current_aircraft = this;
+
 	//create new comm channel and store handle in chid
 	chid = ChannelCreate(0);
 
@@ -112,8 +109,9 @@ void Aircraft::run() {
 		        		response.speedX=this->speedX;
 		        		response.speedY=this->speedY;
 		        		response.speedZ=this->speedZ;
-		        		updatePosition();
+
 		        		MsgReply(rcvid, EOK, &response, sizeof(response));
+		        		updatePosition();
 		        		break;
 		        	default:
 		        		cout<<"Unknown command\n";
@@ -121,8 +119,6 @@ void Aircraft::run() {
 		        }
 
 	}
-
-
 }
 
 

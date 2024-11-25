@@ -9,6 +9,7 @@
 #include <thread>
 #include <ctime>
 #include "aircraft.h"
+#include "DataDisplay.h"
 #include "computersystem.h"
 #include "radar.h"
 using namespace std;
@@ -16,7 +17,7 @@ using namespace std;
 int main() {
     vector<Aircraft> aircrafts;
 
-
+    DataDisplay display;
     string line;
 
     // Read aircraft info from aircraft_data.txt (initial data)
@@ -63,7 +64,12 @@ int main() {
         cout << "Aircraft " << aircrafts[i].getId() << " has entered the airspace.\n";
     }
     ComputerSystem compSystem= ComputerSystem(aircrafts);
+    //data display thread
+    pthread_t data_display_tid;
+    pthread_create(&data_display_tid, NULL, &DataDisplay::start, &display);
+    compSystem.setDisplayChid(display.getChid());
 
+    std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000));
 
     //create computer system
 
@@ -77,6 +83,8 @@ int main() {
 
     // Join Computer System Thread thread
     pthread_join(computer_system_tid, nullptr);
+    //join datadisplay
+     pthread_join(data_display_tid, nullptr);
 
 
     return 0;
