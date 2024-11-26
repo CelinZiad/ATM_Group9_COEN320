@@ -40,7 +40,7 @@ public:
     int getChid() const;
     void setOperatorChid(int id);
     void setDisplayChid(int id);
-    void checkViolation();
+    void checkCollision();
     void checkSeparation(const std::shared_ptr<Aircraft>& ac1, const std::shared_ptr<Aircraft>& ac2);
     void logSystem();
     static void* start(void* context);

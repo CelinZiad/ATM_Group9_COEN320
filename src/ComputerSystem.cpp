@@ -9,7 +9,7 @@
 #define COMMAND_DISPLAY_AIRCRAFT 1111
 
 #define COMPUTER_SYSTEM_NUM_PERIODIC_TASKS 4
-#define AIRSPACE_VIOLATION_CONSTRAINT_TIMER 11
+#define COLLISION_CHECK_TIMER 11
 #define LOG_AIRSPACE_TO_CONSOLE_TIMER 12
 #define OPERATOR_COMMAND_CHECK_TIMER 13
 #define LOG_AIRSPACE_TO_FILE_TIMER 14
@@ -22,7 +22,7 @@ ComputerSystem::ComputerSystem(std::vector<std::shared_ptr<Aircraft>>& aircrafts
 
 void ComputerSystem::createTasks() {
     periodicTask periodicTasks[COMPUTER_SYSTEM_NUM_PERIODIC_TASKS] = {
-        { AIRSPACE_VIOLATION_CONSTRAINT_TIMER, 1 },
+        { COLLISION_CHECK_TIMER, 1 },
         { LOG_AIRSPACE_TO_CONSOLE_TIMER, 5 },
         { OPERATOR_COMMAND_CHECK_TIMER, 1 },
         { LOG_AIRSPACE_TO_FILE_TIMER, 30 }
@@ -52,7 +52,7 @@ void ComputerSystem::createTasks() {
         struct itimerspec timerValue;
         if (pt.timerCode == LOG_AIRSPACE_TO_CONSOLE_TIMER) {
             timerValue.it_value.tv_sec = 0;
-            timerValue.it_value.tv_nsec = 1; // Minimal non-zero value
+            timerValue.it_value.tv_nsec = 1;
         } else {
             timerValue.it_value.tv_sec = pt.taskIntervalSeconds;
             timerValue.it_value.tv_nsec = 0;
@@ -72,8 +72,8 @@ void ComputerSystem::listen() {
         if (rcvid == 0) {
             // Pulse received
             switch (msg.header.code) {
-            case AIRSPACE_VIOLATION_CONSTRAINT_TIMER:
-                 checkViolation();
+            case COLLISION_CHECK_TIMER:
+                 checkCollision();
                  break;
             case LOG_AIRSPACE_TO_CONSOLE_TIMER:
                 logSystem();
@@ -124,7 +124,7 @@ void ComputerSystem::run() {
     listen();
 }
 
-void ComputerSystem::checkViolation() {
+void ComputerSystem::checkCollision() {
     for (size_t i = 0; i < aircrafts.size() - 1; i++) {
         for (size_t j = i + 1; j < aircrafts.size(); j++) {
             checkSeparation(aircrafts[i], aircrafts[j]);

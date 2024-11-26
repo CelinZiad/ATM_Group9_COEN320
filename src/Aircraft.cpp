@@ -16,6 +16,7 @@
 #include <errno.h>
 #define CODE_TIMER 1
 #define COMMAND_RADAR_PING 2
+#define COMMAND_SET_NEW_VELOCITY 667
 using namespace std;
 
 
@@ -114,6 +115,13 @@ void Aircraft::run() {
                 response.speedZ = speedZ;
                 MsgReply(rcvid, EOK, &response, sizeof(response));
                 break;
+            case COMMAND_SET_NEW_VELOCITY:
+                speedX = msg.newVelocity.speedX;
+                speedY = msg.newVelocity.speedY;
+                speedZ = msg.newVelocity.speedZ;
+                std::cout << "Aircraft " << id << " updated velocity: ("  << speedX << ", " << speedY << ", " << speedZ << ")\n";
+                MsgReply(rcvid, EOK, NULL, 0);
+            	break;
             default:
                 cout << "Unknown command\n";
             }
