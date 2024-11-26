@@ -1,9 +1,4 @@
-/*
- * CommunicationSystem.cpp
- *
- *  Created on: Nov. 25, 2024
- *      Author: Elias
- */
+
 
 #include "CommunicationSystem.h"
 #include <iostream>
@@ -38,6 +33,5 @@ void CommunicationSystem::send(std::shared_ptr<Aircraft>& R, AircraftVelocity& m
 		}
 		return;
 }
-
 
 

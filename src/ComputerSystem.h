@@ -12,6 +12,8 @@
 #include <memory>
 #include "Aircraft.h"
 #include "Radar.h"
+#include "OperatorConsoleMessages.h"
+#include "CommunicationSystem.h"
 
 
 typedef struct {
@@ -33,6 +35,9 @@ private:
     Radar radar;
     void listen();
     void createTasks();
+    void checkOperatorConsole();
+    void processOperatorCommand(const OperatorConsoleResponseMessage& msg);
+
 
 public:
     ComputerSystem(std::vector<std::shared_ptr<Aircraft>>& aircrafts);

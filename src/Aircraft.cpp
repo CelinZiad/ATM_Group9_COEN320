@@ -1,9 +1,4 @@
-/*
- * Aircraft.cpp
- *
- *  Created on: Nov. 16, 2024
- *      Author: Elias
- */
+
 
 #include "aircraft.h"
 #include <iostream>
@@ -171,4 +166,3 @@ void Aircraft::setSpeedX(double speedX) {this->speedX = speedX;}
 void Aircraft::setSpeedY(double speedY) {this->speedY = speedY;}
 
 void Aircraft::setSpeedZ(double speedZ) {this->speedZ = speedZ;}
-

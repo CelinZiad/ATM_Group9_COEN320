@@ -11,6 +11,7 @@
 #include "aircraft.h"
 #include "DataDisplay.h"
 #include "computersystem.h"
+#include "OperatorConsole.h"
 #include "radar.h"
 using namespace std;
 
@@ -58,7 +59,12 @@ int main() {
     pthread_create(&data_display_tid, NULL, &DataDisplay::start, &display);
     compSystem.setDisplayChid(display.getChid());
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000));
+    OperatorConsole operatorConsole;
+     pthread_t operator_console_tid;
+     pthread_create(&operator_console_tid, NULL, &OperatorConsole::start, &operatorConsole);
+     compSystem.setOperatorChid(operatorConsole.getChid());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     //create computer system
 
@@ -74,8 +80,8 @@ int main() {
     pthread_join(computer_system_tid, nullptr);
     //join datadisplay
      pthread_join(data_display_tid, nullptr);
+     pthread_join(operator_console_tid, nullptr);
 
 
     return 0;
 }
-

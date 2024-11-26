@@ -1,9 +1,4 @@
-/*
- * Radar.cpp
- *
- *  Created on: Nov. 16, 2024
- *      Author: Elias
- */
+
 
 #include "Radar.h"
 #include <sys/neutrino.h>
@@ -55,8 +50,3 @@ std::vector<AircraftStatus> Radar::getAllAircraftStatus() {
 	    return responses;
 
 }
-
-
-
-
-
