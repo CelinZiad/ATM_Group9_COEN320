@@ -80,7 +80,7 @@ void Aircraft::run() {
     timer_settime(updateTimer, 0, &timerValue, NULL);
 
     int rcvid;
-    PlaneCommandMessage msg;
+    CommandMessage msg;
 
     while (1) {
         rcvid = MsgReceive(chid, &msg, sizeof(msg), NULL);

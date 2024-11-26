@@ -8,16 +8,15 @@
 #ifndef COMMUNICATIONSYSTEM_H_
 #define COMMUNICATIONSYSTEM_H_
 #include "Aircraft.h"
-struct AircraftVelocity {
-    double speedX;
-    double speedY;
-    double speedZ;
-};
+#include <vector>
+#include <memory>
+using namespace std;
+
 class CommunicationSystem {
 public:
-	CommunicationSystem();
+
 	CommunicationSystem(std::vector<std::shared_ptr<Aircraft>>& aircrafts);
-	void send(std::shared_ptr<Aircraft>& R, AircraftVelocity m);
+	void send(std::shared_ptr<Aircraft>& R, AircraftVelocity& m);
 
 private:
 	std::vector<std::shared_ptr<Aircraft>>& aircrafts;

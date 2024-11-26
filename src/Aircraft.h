@@ -14,11 +14,17 @@ struct AircraftStatus {
     double x, y, z;
     double speedX, speedY, speedZ;
 };
+struct AircraftVelocity {
+    double speedX;
+    double speedY;
+    double speedZ;
+};
 
-typedef struct {
-    struct _pulse header;
-    int command;
-} PlaneCommandMessage;
+struct CommandMessage {
+			struct _pulse header;
+	        int command;
+	        AircraftVelocity newVelocity;
+	    };
 
 class Aircraft {
 public:

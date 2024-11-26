@@ -24,7 +24,7 @@ Radar::Radar(std::vector<std::shared_ptr<Aircraft>>& aircrafts)
 
 AircraftStatus Radar::pingAircraft(std::shared_ptr<Aircraft> ac) {
     int coid = ConnectAttach(0, 0, ac->getChid(), _NTO_SIDE_CHANNEL, 0);
-    PlaneCommandMessage msg;
+    CommandMessage msg;
     msg.command = COMMAND_RADAR_PING;
     AircraftStatus response;
     MsgSend(coid, &msg, sizeof(msg), &response, sizeof(response));
@@ -42,7 +42,7 @@ std::vector<AircraftStatus> Radar::getAllAircraftStatus() {
 
 	        int coid = ConnectAttach(0, 0, aircrafts[i]->getChid(), _NTO_SIDE_CHANNEL, 0);
 	        if (coid != -1) {
-	            PlaneCommandMessage msg;
+	            CommandMessage msg;
 	            msg.command = COMMAND_RADAR_PING;
 	            AircraftStatus response;
 	            int status = MsgSend(coid, &msg, sizeof(msg), &response, sizeof(response));

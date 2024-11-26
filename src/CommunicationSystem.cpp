@@ -8,14 +8,12 @@
 #include "CommunicationSystem.h"
 #include <iostream>
 #define COMMAND_SET_NEW_VELOCITY 667
-CommunicationSystem::CommunicationSystem(){
 
-}
 CommunicationSystem::CommunicationSystem(std::vector<std::shared_ptr<Aircraft>>& aircrafts):aircrafts(aircrafts){
 
 }
 
-void Communication::send(std::shared_ptr<Aircraft>& R, AircraftVelocity& m){
+void CommunicationSystem::send(std::shared_ptr<Aircraft>& R, AircraftVelocity& m){
 	int planeChid=R->getChid();
 
 	int coid;
